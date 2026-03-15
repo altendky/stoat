@@ -8,20 +8,17 @@ The key transformation is authentication: the client authenticates with a simple
 
 ## Request Flow
 
-```text
-┌────────────┐                ┌─────────────────┐                ┌──────────────┐
-│            │  1. Request    │                 │  3. Request    │              │
-│   Client   │ ──────────────> │     stoat       │ ──────────────> │   Upstream   │
-│            │  (x-api-key)  │                 │  (Bearer tok)  │     API      │
-│            │               │  2. Transform:  │  + mutations   │              │
-│            │               │  - strip headers│                │              │
-│            │               │  - set headers  │                │              │
-│            │               │  - add query    │                │              │
-│            │               │    params       │                │              │
-│            │  5. Response   │                 │  4. Response   │              │
-│            │ <────────────── │                 │ <────────────── │              │
-│            │  (streamed)   │  (pass-through) │  (streamed)    │              │
-└────────────┘                └─────────────────┘                └──────────────┘
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant S as stoat
+    participant U as Upstream API
+
+    C->>S: 1. Request (x-api-key)
+    Note over S: 2. Transform:<br/>- strip headers<br/>- set headers<br/>- add query params
+    S->>U: 3. Request (Bearer token + mutations)
+    U-->>S: 4. Response (streamed)
+    S-->>C: 5. Response (streamed, pass-through)
 ```
 
 Per request:
