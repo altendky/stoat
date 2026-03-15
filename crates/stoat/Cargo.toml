@@ -1,0 +1,26 @@
+[package]
+name = "stoat"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Streaming OAuth Transformer — a config-driven local reverse proxy for OAuth token lifecycle management"
+keywords = ["oauth", "proxy", "streaming", "transformer"]
+categories = ["authentication", "network-programming"]
+
+[[bin]]
+name = "stoat"
+path = "src/main.rs"
+
+[dependencies]
+stoat-core = { workspace = true }
+stoat-io = { workspace = true }
+clap = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+[lints]
+workspace = true

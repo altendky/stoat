@@ -1,0 +1,9 @@
+name: Setup Nextest (musl)
+description: Install cargo-nextest for musl-based environments (e.g., Alpine containers) where mise cannot be used
+
+runs:
+  using: composite
+  steps:
+    - name: Install cargo-nextest (musl)
+      shell: sh
+      run: "${{ github.action_path }}/setup.sh"

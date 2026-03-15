@@ -1,0 +1,4 @@
+# Rustfmt configuration
+# See: https://rust-lang.github.io/rustfmt/
+
+style_edition = "2024"

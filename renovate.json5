@@ -1,0 +1,56 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+
+  // Only rebase PRs when they have conflicts, not just for being behind
+  "rebaseWhen": "conflicted",
+
+  // Extend recommended defaults + SHA pinning for GitHub Actions
+  "extends": [
+    "config:recommended",
+    "helpers:pinGitHubActionDigests"
+  ],
+
+  // Enable the beta pre-commit manager
+  "pre-commit": {
+    "enabled": true
+  },
+
+  // Custom managers for Rust toolchain version (rust-toolchain.toml + Cargo.toml MSRV)
+  "customManagers": [
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^rust-toolchain\\.toml$/"],
+      "matchStrings": ["channel\\s*=\\s*\"(?<currentValue>\\d+\\.\\d+)\""],
+      "depNameTemplate": "rust-lang/rust",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^(?<version>\\d+\\.\\d+)\\.\\d+$"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^Cargo\\.toml$/"],
+      "matchStrings": ["rust-version\\s*=\\s*\"(?<currentValue>\\d+\\.\\d+)\""],
+      "depNameTemplate": "rust-lang/rust",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^(?<version>\\d+\\.\\d+)\\.\\d+$"
+    }
+  ],
+
+  "packageRules": [
+    // Group Rust toolchain updates (rust-toolchain.toml + Cargo.toml MSRV)
+    {
+      "matchDepNames": ["rust-lang/rust"],
+      "groupName": "Rust toolchain"
+    },
+
+    // After bumping a mise tool version, re-lock just that tool so mise.lock
+    // stays in sync with mise.toml.
+    {
+      "matchManagers": ["mise"],
+      "postUpgradeTasks": {
+        "commands": ["mise lock {{{depName}}}"],
+        "fileFilters": ["mise.lock"],
+        "executionMode": "update"
+      }
+    }
+  ]
+}

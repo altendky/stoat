@@ -1,0 +1,20 @@
+name: Setup Rust
+description: Install Rust toolchain
+
+inputs:
+  toolchain:
+    description: Rust toolchain version to install
+    required: true
+  components:
+    description: Comma-separated list of components to install (e.g., "rustfmt, clippy")
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Install Rust toolchain
+      uses: actions-rust-lang/setup-rust-toolchain@a0b538fa0b742a6aa35d6e2c169b4bd06d225a98 # v1
+      with:
+        toolchain: ${{ inputs.toolchain }}
+        components: ${{ inputs.components }}
