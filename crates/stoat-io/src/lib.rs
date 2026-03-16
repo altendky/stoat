@@ -11,7 +11,15 @@
 //! - Terminal I/O for paste-mode code receipt
 //! - Local HTTP listener for OAuth callback receipt
 
+#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used, clippy::panic))]
+
 use std::path::{Path, PathBuf};
+
+pub mod browser;
+pub mod callback;
+pub mod paste;
+pub mod token_exchange;
+pub mod token_store;
 
 /// Read a file from disk and return its contents as a string.
 ///
