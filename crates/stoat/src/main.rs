@@ -127,6 +127,7 @@ async fn run_login(config: &Config) -> ExitCode {
         redirect_uri: config.oauth.redirect_uri.clone(),
         client_id: config.oauth.client_id.clone(),
         code_verifier: pkce.map(|p| p.verifier().to_owned()),
+        state: Some(state),
         token_format: config.oauth.token_format(),
     };
 
