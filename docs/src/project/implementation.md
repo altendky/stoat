@@ -24,13 +24,13 @@
 
 ## Phase 3: OAuth Flow
 
-- [ ] Implement PKCE code verifier and S256 challenge generation in `stoat-core`
-- [ ] Implement authorization URL construction in `stoat-core`
-- [ ] Implement browser launch via `open` crate in `stoat-io`
-- [ ] Implement authorization code receipt -- paste mode in `stoat-io`
-- [ ] Implement authorization code receipt -- local HTTP listener mode in `stoat-io`
-- [ ] Implement token exchange (POST to `token_url`) in `stoat-io`
-- [ ] Implement token storage (write JSON with `0600` permissions) in `stoat-io`
+- [x] Implement PKCE code verifier and S256 challenge generation in `stoat-core`
+- [x] Implement authorization URL construction in `stoat-core`
+- [x] Implement browser launch via `open` crate in `stoat-io`
+- [x] Implement authorization code receipt -- paste mode in `stoat-io`
+- [x] Implement authorization code receipt -- local HTTP listener mode in `stoat-io`
+- [x] Implement token exchange (POST to `token_url`) in `stoat-io`
+- [x] Implement token storage (write JSON with `0600` permissions) in `stoat-io`
 
 ## Phase 4: Token Management
 
