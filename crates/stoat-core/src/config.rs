@@ -2,13 +2,18 @@
 //!
 //! These types represent the TOML config file that drives stoat's behavior.
 //! All fields that are not required have sensible defaults.
+//!
+//! URL fields are parsed and validated at deserialization time using
+//! [`url::Url`]. The `listen` address is parsed as a [`SocketAddr`].
 
 use std::collections::HashMap;
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
 use serde::Deserialize;
+use url::Url;
 
 /// Default listen address: localhost with automatic port assignment.
-const DEFAULT_LISTEN: &str = "127.0.0.1:0";
+const DEFAULT_LISTEN: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 0);
 
 /// Default token file path (tilde-expanded at runtime by the I/O layer).
 const DEFAULT_TOKEN_FILE: &str = "~/.config/stoat/tokens.json";
@@ -17,7 +22,8 @@ const DEFAULT_TOKEN_FILE: &str = "~/.config/stoat/tokens.json";
 #[derive(Debug, Deserialize, PartialEq, Eq)]
 pub struct Config {
     /// Address and port to listen on. Use port 0 for automatic assignment.
-    listen: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_optional_socket_addr")]
+    listen: Option<SocketAddr>,
 
     /// Path to the token storage file. Tilde (`~`) is expanded at runtime.
     token_file: Option<String>,
@@ -35,18 +41,22 @@ pub struct Config {
 impl Config {
     /// Deserialize a [`Config`] from a TOML string.
     ///
+    /// URL fields are validated during deserialization — invalid URLs will
+    /// produce an error. The `listen` address is validated as a
+    /// [`SocketAddr`].
+    ///
     /// # Errors
     ///
-    /// Returns a [`toml::de::Error`] if the input is not valid TOML or does
-    /// not match the expected schema.
+    /// Returns a [`toml::de::Error`] if the input is not valid TOML, does
+    /// not match the expected schema, or contains invalid URLs or addresses.
     pub fn from_toml(s: &str) -> Result<Self, toml::de::Error> {
         toml::from_str(s)
     }
 
     /// The listen address, falling back to the default if not configured.
     #[must_use]
-    pub fn listen_address(&self) -> &str {
-        self.listen.as_deref().unwrap_or(DEFAULT_LISTEN)
+    pub fn listen_address(&self) -> SocketAddr {
+        self.listen.unwrap_or(DEFAULT_LISTEN)
     }
 
     /// The token file path, falling back to the default if not configured.
@@ -60,17 +70,17 @@ impl Config {
 #[derive(Debug, Deserialize, PartialEq, Eq)]
 pub struct Upstream {
     /// Base URL of the upstream API.
-    pub base_url: String,
+    pub base_url: Url,
 }
 
 /// OAuth PKCE configuration.
 #[derive(Debug, Deserialize, PartialEq, Eq)]
 pub struct OAuth {
     /// OAuth authorization endpoint.
-    pub authorize_url: String,
+    pub authorize_url: Url,
 
     /// OAuth token exchange and refresh endpoint.
-    pub token_url: String,
+    pub token_url: Url,
 
     /// OAuth client identifier.
     pub client_id: String,
@@ -82,7 +92,7 @@ pub struct OAuth {
     pkce: Option<bool>,
 
     /// Redirect URI for the OAuth flow.
-    pub redirect_uri: String,
+    pub redirect_uri: Url,
 }
 
 impl OAuth {
@@ -107,8 +117,23 @@ pub struct Translation {
     pub query_params: Option<HashMap<String, String>>,
 }
 
+/// Deserialize an optional `SocketAddr` from a TOML string value.
+fn deserialize_optional_socket_addr<'de, D>(deserializer: D) -> Result<Option<SocketAddr>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let value: Option<String> = Option::deserialize(deserializer)?;
+    value
+        .map(|s| s.parse().map_err(serde::de::Error::custom))
+        .transpose()
+}
+
 #[cfg(test)]
 mod tests {
+    use std::net::SocketAddr;
+
+    use url::Url;
+
     use super::*;
 
     /// The full example config from `docs/src/project/configuration.md`.
@@ -154,20 +179,29 @@ redirect_uri = "https://example.com/oauth/callback"
     fn deserialize_full_config() {
         let config = Config::from_toml(FULL_CONFIG).unwrap();
 
-        assert_eq!(config.listen_address(), "127.0.0.1:8080");
+        assert_eq!(
+            config.listen_address(),
+            SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 8080),
+        );
         assert_eq!(config.token_file_path(), "~/.config/stoat/tokens.json");
-        assert_eq!(config.upstream.base_url, "https://api.example.com");
+        assert_eq!(
+            config.upstream.base_url,
+            Url::parse("https://api.example.com").unwrap(),
+        );
         assert_eq!(
             config.oauth.authorize_url,
-            "https://example.com/oauth/authorize"
+            Url::parse("https://example.com/oauth/authorize").unwrap(),
         );
-        assert_eq!(config.oauth.token_url, "https://example.com/oauth/token");
+        assert_eq!(
+            config.oauth.token_url,
+            Url::parse("https://example.com/oauth/token").unwrap(),
+        );
         assert_eq!(config.oauth.client_id, "your-client-id");
         assert_eq!(config.oauth.scopes, vec!["scope1", "scope2"]);
         assert!(config.oauth.pkce_enabled());
         assert_eq!(
             config.oauth.redirect_uri,
-            "https://example.com/oauth/callback"
+            Url::parse("https://example.com/oauth/callback").unwrap(),
         );
 
         let translation = config.translation.unwrap();
@@ -190,7 +224,10 @@ redirect_uri = "https://example.com/oauth/callback"
     fn deserialize_minimal_config() {
         let config = Config::from_toml(MINIMAL_CONFIG).unwrap();
 
-        assert_eq!(config.upstream.base_url, "https://api.example.com");
+        assert_eq!(
+            config.upstream.base_url,
+            Url::parse("https://api.example.com").unwrap(),
+        );
         assert_eq!(config.oauth.client_id, "your-client-id");
         assert_eq!(config.oauth.scopes, vec!["scope1"]);
         assert!(config.translation.is_none());
@@ -199,14 +236,20 @@ redirect_uri = "https://example.com/oauth/callback"
     #[test]
     fn default_listen_address() {
         let config = Config::from_toml(MINIMAL_CONFIG).unwrap();
-        assert_eq!(config.listen_address(), "127.0.0.1:0");
+        assert_eq!(
+            config.listen_address(),
+            SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 0),
+        );
     }
 
     #[test]
     fn custom_listen_address() {
         let toml = format!("listen = \"0.0.0.0:9999\"\n{MINIMAL_CONFIG}");
         let config = Config::from_toml(&toml).unwrap();
-        assert_eq!(config.listen_address(), "0.0.0.0:9999");
+        assert_eq!(
+            config.listen_address(),
+            SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 9999),
+        );
     }
 
     #[test]
@@ -360,5 +403,43 @@ redirect_uri = "https://example.com/oauth/callback"
         assert!(translation.set_headers.is_none());
         let query_params = translation.query_params.unwrap();
         assert_eq!(query_params.get("beta").unwrap(), "true");
+    }
+
+    #[test]
+    fn invalid_upstream_url_is_error() {
+        let toml = r#"
+[upstream]
+base_url = "not a valid url"
+
+[oauth]
+authorize_url = "https://example.com/oauth/authorize"
+token_url = "https://example.com/oauth/token"
+client_id = "your-client-id"
+scopes = ["scope1"]
+redirect_uri = "https://example.com/oauth/callback"
+"#;
+        assert!(Config::from_toml(toml).is_err());
+    }
+
+    #[test]
+    fn invalid_oauth_url_is_error() {
+        let toml = r#"
+[upstream]
+base_url = "https://api.example.com"
+
+[oauth]
+authorize_url = "not a url"
+token_url = "https://example.com/oauth/token"
+client_id = "your-client-id"
+scopes = ["scope1"]
+redirect_uri = "https://example.com/oauth/callback"
+"#;
+        assert!(Config::from_toml(toml).is_err());
+    }
+
+    #[test]
+    fn invalid_listen_address_is_error() {
+        let toml = format!("listen = \"not-an-address\"\n{MINIMAL_CONFIG}");
+        assert!(Config::from_toml(&toml).is_err());
     }
 }

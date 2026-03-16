@@ -16,11 +16,11 @@
 
 ## Phase 2: Config and CLI
 
-- [ ] Define config file types in `stoat-core` (serde deserialization)
-- [ ] Implement tilde expansion for `token_file` in `stoat-core`
-- [ ] Implement config validation in `stoat-core` (required fields, URL parsing)
-- [ ] Implement CLI with `clap` in `stoat` binary (`login` and `serve` subcommands)
-- [ ] Implement config file loading in `stoat-io` (file reading)
+- [x] Define config file types in `stoat-core` (serde deserialization)
+- [x] Implement tilde expansion for `token_file` in `stoat-core`
+- [x] Implement config validation in `stoat-core` (required fields, URL parsing)
+- [x] Implement CLI with `clap` in `stoat` binary (`login` and `serve` subcommands)
+- [x] Implement config file loading in `stoat-io` (file reading)
 
 ## Phase 3: OAuth Flow
 
