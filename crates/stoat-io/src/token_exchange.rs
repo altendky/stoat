@@ -94,6 +94,7 @@ mod tests {
             redirect_uri: Url::parse("http://localhost:8080/callback").unwrap(),
             client_id: "test-client".into(),
             code_verifier: Some("test-verifier".into()),
+            state: None,
             token_format: TokenFormat::Form,
         }
     }
@@ -210,6 +211,7 @@ mod tests {
             redirect_uri: Url::parse("http://localhost/callback").unwrap(),
             client_id: "client".into(),
             code_verifier: None,
+            state: None,
             token_format: TokenFormat::Form,
         };
 

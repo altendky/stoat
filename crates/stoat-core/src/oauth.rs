@@ -72,6 +72,9 @@ pub struct TokenExchangeParams {
     pub client_id: String,
     /// The PKCE code verifier (if PKCE was used).
     pub code_verifier: Option<String>,
+    /// The OAuth state parameter (included when the provider requires it in the
+    /// token exchange body).
+    pub state: Option<String>,
     /// The body format for the token endpoint request.
     pub token_format: TokenFormat,
 }
@@ -120,6 +123,10 @@ impl TokenExchangeParams {
             params.push(("code_verifier", verifier));
         }
 
+        if let Some(state) = &self.state {
+            params.push(("state", state));
+        }
+
         params
     }
 
@@ -134,6 +141,10 @@ impl TokenExchangeParams {
 
         if let Some(verifier) = &self.code_verifier {
             map.insert("code_verifier", verifier);
+        }
+
+        if let Some(state) = &self.state {
+            map.insert("state", state);
         }
 
         map
@@ -275,6 +286,7 @@ redirect_uri = "https://example.com/oauth/callback"
             redirect_uri: Url::parse("https://example.com/oauth/callback").unwrap(),
             client_id: "test-client".into(),
             code_verifier: Some("my-verifier".into()),
+            state: None,
             token_format: TokenFormat::Form,
         };
 
@@ -294,6 +306,7 @@ redirect_uri = "https://example.com/oauth/callback"
             redirect_uri: Url::parse("https://example.com/oauth/callback").unwrap(),
             client_id: "test-client".into(),
             code_verifier: None,
+            state: None,
             token_format: TokenFormat::Form,
         };
 
@@ -309,6 +322,7 @@ redirect_uri = "https://example.com/oauth/callback"
             redirect_uri: Url::parse("https://example.com/oauth/callback").unwrap(),
             client_id: "test-client".into(),
             code_verifier: Some("my-verifier".into()),
+            state: None,
             token_format: TokenFormat::Json,
         };
 
@@ -331,11 +345,76 @@ redirect_uri = "https://example.com/oauth/callback"
             redirect_uri: Url::parse("https://example.com/oauth/callback").unwrap(),
             client_id: "test-client".into(),
             code_verifier: None,
+            state: None,
             token_format: TokenFormat::Json,
         };
 
         let body = params.json_body();
         assert!(!body.contains_key("code_verifier"));
+    }
+
+    #[test]
+    fn token_exchange_form_params_with_state() {
+        let params = TokenExchangeParams {
+            token_url: Url::parse("https://example.com/oauth/token").unwrap(),
+            code: "auth-code-123".into(),
+            redirect_uri: Url::parse("https://example.com/oauth/callback").unwrap(),
+            client_id: "test-client".into(),
+            code_verifier: None,
+            state: Some("test-state".into()),
+            token_format: TokenFormat::Form,
+        };
+
+        let form = params.form_params();
+        assert!(form.contains(&("state", "test-state")));
+    }
+
+    #[test]
+    fn token_exchange_form_params_without_state() {
+        let params = TokenExchangeParams {
+            token_url: Url::parse("https://example.com/oauth/token").unwrap(),
+            code: "auth-code-123".into(),
+            redirect_uri: Url::parse("https://example.com/oauth/callback").unwrap(),
+            client_id: "test-client".into(),
+            code_verifier: None,
+            state: None,
+            token_format: TokenFormat::Form,
+        };
+
+        let form = params.form_params();
+        assert!(!form.iter().any(|(k, _)| *k == "state"));
+    }
+
+    #[test]
+    fn token_exchange_json_body_with_state() {
+        let params = TokenExchangeParams {
+            token_url: Url::parse("https://example.com/oauth/token").unwrap(),
+            code: "auth-code-123".into(),
+            redirect_uri: Url::parse("https://example.com/oauth/callback").unwrap(),
+            client_id: "test-client".into(),
+            code_verifier: None,
+            state: Some("test-state".into()),
+            token_format: TokenFormat::Json,
+        };
+
+        let body = params.json_body();
+        assert_eq!(body.get("state"), Some(&"test-state"));
+    }
+
+    #[test]
+    fn token_exchange_json_body_without_state() {
+        let params = TokenExchangeParams {
+            token_url: Url::parse("https://example.com/oauth/token").unwrap(),
+            code: "auth-code-123".into(),
+            redirect_uri: Url::parse("https://example.com/oauth/callback").unwrap(),
+            client_id: "test-client".into(),
+            code_verifier: None,
+            state: None,
+            token_format: TokenFormat::Json,
+        };
+
+        let body = params.json_body();
+        assert!(!body.contains_key("state"));
     }
 
     #[test]
