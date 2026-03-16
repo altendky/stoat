@@ -11,9 +11,9 @@ use sha2::{Digest, Sha256};
 
 /// Length of the random bytes used to generate the code verifier.
 ///
-/// 32 random bytes → 43 base64url characters (within the 43–128 range
+/// 64 random bytes → 86 base64url characters (within the 43–128 range
 /// required by RFC 7636 § 4.1).
-const VERIFIER_RANDOM_BYTES: usize = 32;
+const VERIFIER_RANDOM_BYTES: usize = 64;
 
 /// A PKCE code verifier and its derived S256 challenge.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -28,8 +28,8 @@ impl PkceChallenge {
     /// Generate a new PKCE code verifier from the given RNG and derive the
     /// S256 challenge.
     ///
-    /// The verifier is 43 characters of base64url (no padding), produced
-    /// from 32 random bytes. The challenge is `base64url(sha256(verifier))`.
+    /// The verifier is 86 characters of base64url (no padding), produced
+    /// from 64 random bytes. The challenge is `base64url(sha256(verifier))`.
     pub fn generate(rng: &mut impl rand::Rng) -> Self {
         let mut random_bytes = [0u8; VERIFIER_RANDOM_BYTES];
         rng.fill_bytes(&mut random_bytes);
@@ -67,13 +67,13 @@ mod tests {
     use super::*;
 
     #[test]
-    fn verifier_length_is_43() {
+    fn verifier_length_is_86() {
         let mut rng = rand::rng();
         let pkce = PkceChallenge::generate(&mut rng);
         assert_eq!(
             pkce.verifier().len(),
-            43,
-            "32 random bytes should produce a 43-character base64url verifier"
+            86,
+            "64 random bytes should produce an 86-character base64url verifier"
         );
     }
 

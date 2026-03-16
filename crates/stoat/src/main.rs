@@ -91,7 +91,12 @@ async fn run_login(config: &Config) -> ExitCode {
         } else {
             None
         };
-        let state = generate_state(&mut rng);
+        // When PKCE is enabled, use the verifier as the state parameter.
+        // Some OAuth providers expect state == code_verifier.  When PKCE
+        // is disabled, fall back to a random state value.
+        let state = pkce
+            .as_ref()
+            .map_or_else(|| generate_state(&mut rng), |p| p.verifier().to_owned());
         (pkce, state)
     };
 
