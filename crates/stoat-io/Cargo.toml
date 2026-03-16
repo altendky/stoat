@@ -6,6 +6,7 @@ rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 homepage.workspace = true
+readme.workspace = true
 description = "I/O layer for stoat — HTTP proxy server, OAuth token exchange, browser launch"
 keywords = ["oauth", "proxy", "streaming"]
 categories = ["authentication", "network-programming"]
