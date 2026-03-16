@@ -73,6 +73,22 @@ pub struct Upstream {
     pub base_url: Url,
 }
 
+/// Body format for token endpoint requests.
+///
+/// Controls whether the token exchange and refresh POST requests send
+/// `application/x-www-form-urlencoded` (the OAuth 2.0 RFC 6749 default)
+/// or `application/json` bodies.
+#[derive(Debug, Clone, Copy, Default, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum TokenFormat {
+    /// Form-encoded body (`application/x-www-form-urlencoded`). This is the
+    /// default per RFC 6749.
+    #[default]
+    Form,
+    /// JSON body (`application/json`). Required by some OAuth providers.
+    Json,
+}
+
 /// OAuth PKCE configuration.
 #[derive(Debug, Deserialize, PartialEq, Eq)]
 pub struct OAuth {
@@ -93,6 +109,10 @@ pub struct OAuth {
 
     /// Redirect URI for the OAuth flow.
     pub redirect_uri: Url,
+
+    /// Body format for the token endpoint. Defaults to `Form` when not
+    /// specified.
+    token_format: Option<TokenFormat>,
 }
 
 impl OAuth {
@@ -100,6 +120,12 @@ impl OAuth {
     #[must_use]
     pub fn pkce_enabled(&self) -> bool {
         self.pkce.unwrap_or(true)
+    }
+
+    /// The token endpoint body format, defaulting to [`TokenFormat::Form`].
+    #[must_use]
+    pub fn token_format(&self) -> TokenFormat {
+        self.token_format.unwrap_or_default()
     }
 }
 
@@ -459,5 +485,31 @@ redirect_uri = "https://example.com/oauth/callback"
     fn invalid_listen_address_is_error() {
         let toml = format!("listen = \"not-an-address\"\n{MINIMAL_CONFIG}");
         assert!(Config::from_toml(&toml).is_err());
+    }
+
+    #[test]
+    fn token_format_defaults_to_form() {
+        let config = Config::from_toml(MINIMAL_CONFIG).unwrap();
+        assert_eq!(config.oauth.token_format(), TokenFormat::Form);
+    }
+
+    #[test]
+    fn token_format_explicit_form() {
+        let toml = MINIMAL_CONFIG.replace(
+            "redirect_uri = \"https://example.com/oauth/callback\"",
+            "redirect_uri = \"https://example.com/oauth/callback\"\ntoken_format = \"form\"",
+        );
+        let config = Config::from_toml(&toml).unwrap();
+        assert_eq!(config.oauth.token_format(), TokenFormat::Form);
+    }
+
+    #[test]
+    fn token_format_explicit_json() {
+        let toml = MINIMAL_CONFIG.replace(
+            "redirect_uri = \"https://example.com/oauth/callback\"",
+            "redirect_uri = \"https://example.com/oauth/callback\"\ntoken_format = \"json\"",
+        );
+        let config = Config::from_toml(&toml).unwrap();
+        assert_eq!(config.oauth.token_format(), TokenFormat::Json);
     }
 }

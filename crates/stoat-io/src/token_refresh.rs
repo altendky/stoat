@@ -3,6 +3,7 @@
 //! Sends the refresh token to the token endpoint with
 //! `grant_type=refresh_token` and returns the token response.
 
+use stoat_core::config::TokenFormat;
 use stoat_core::oauth::TokenRefreshParams;
 use stoat_core::token::TokenResponse;
 
@@ -43,12 +44,13 @@ pub async fn refresh_token(
 ) -> Result<TokenResponse, TokenRefreshError> {
     let client = reqwest::Client::new();
 
-    let response = client
-        .post(params.token_url.as_str())
-        .form(&params.form_params())
-        .send()
-        .await
-        .map_err(TokenRefreshError::Request)?;
+    let request = client.post(params.token_url.as_str());
+    let request = match params.token_format {
+        TokenFormat::Form => request.form(&params.form_params()),
+        TokenFormat::Json => request.json(&params.json_body()),
+    };
+
+    let response = request.send().await.map_err(TokenRefreshError::Request)?;
 
     let status = response.status();
     if !status.is_success() {
@@ -73,6 +75,7 @@ mod tests {
     use axum::extract::Form;
     use axum::response::IntoResponse;
     use axum::routing::post;
+    use stoat_core::config::TokenFormat;
     use stoat_core::oauth::TokenRefreshParams;
     use tokio::sync::Mutex;
     use url::Url;
@@ -93,6 +96,7 @@ mod tests {
             token_url: Url::parse(&format!("http://127.0.0.1:{port}/token")).unwrap(),
             refresh_token: "old-refresh-token".into(),
             client_id: "test-client".into(),
+            token_format: TokenFormat::Form,
         }
     }
 
@@ -195,6 +199,7 @@ mod tests {
             token_url: Url::parse("http://127.0.0.1:1/token").unwrap(),
             refresh_token: "refresh".into(),
             client_id: "client".into(),
+            token_format: TokenFormat::Form,
         };
 
         let result = refresh_token(&params).await;
@@ -226,5 +231,38 @@ mod tests {
             response.refresh_token.is_none(),
             "server did not return a new refresh token"
         );
+    }
+
+    #[tokio::test]
+    async fn refresh_token_sends_json_body() {
+        let received = Arc::new(Mutex::new(HashMap::new()));
+        let received_clone = Arc::clone(&received);
+
+        let app = axum::Router::new().route(
+            "/token",
+            post(
+                move |axum::Json(json): axum::Json<HashMap<String, String>>| {
+                    let received = Arc::clone(&received_clone);
+                    async move {
+                        *received.lock().await = json;
+                        axum::Json(serde_json::json!({
+                            "access_token": "tok",
+                            "expires_in": 3600
+                        }))
+                    }
+                },
+            ),
+        );
+
+        let (port, _handle) = start_mock_server(app).await;
+        let mut params = test_refresh_params(port);
+        params.token_format = TokenFormat::Json;
+
+        refresh_token(&params).await.unwrap();
+
+        let json = received.lock().await.clone();
+        assert_eq!(json.get("grant_type").unwrap(), "refresh_token");
+        assert_eq!(json.get("refresh_token").unwrap(), "old-refresh-token");
+        assert_eq!(json.get("client_id").unwrap(), "test-client");
     }
 }
