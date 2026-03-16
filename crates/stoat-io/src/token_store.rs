@@ -130,8 +130,10 @@ fn set_owner_only_permissions(path: &Path) -> Result<(), TokenStoreError> {
 
 /// Set file permissions to owner read/write only (0600) on Unix.
 ///
-/// On non-Unix platforms, this is a no-op.
+/// On non-Unix platforms, this is a no-op. The signature must match the
+/// Unix variant so the caller can use `?` unconditionally.
 #[cfg(not(unix))]
+#[allow(clippy::unnecessary_wraps, clippy::missing_const_for_fn)]
 fn set_owner_only_permissions(_path: &Path) -> Result<(), TokenStoreError> {
     Ok(())
 }
