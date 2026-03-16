@@ -1,6 +1,6 @@
 # stoat
 
-**Streaming OAuth Transformer**
+## Streaming OAuth Transformer
 
 A config-driven local reverse proxy that manages OAuth token lifecycle and transforms requests so downstream clients can talk to OAuth-protected APIs using simple authentication.
 
