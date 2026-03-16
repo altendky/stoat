@@ -223,3 +223,206 @@ fn parse_callback(params: CallbackParams) -> Result<CallbackResult, CallbackErro
         state: params.state,
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // --- parse_callback unit tests ---
+
+    #[test]
+    fn parse_callback_success_with_state() {
+        let params = CallbackParams {
+            code: Some("auth-code-123".into()),
+            state: Some("state-xyz".into()),
+            error: None,
+            error_description: None,
+        };
+
+        let result = parse_callback(params).unwrap();
+        assert_eq!(result.code, "auth-code-123");
+        assert_eq!(result.state.as_deref(), Some("state-xyz"));
+    }
+
+    #[test]
+    fn parse_callback_success_without_state() {
+        let params = CallbackParams {
+            code: Some("auth-code-456".into()),
+            state: None,
+            error: None,
+            error_description: None,
+        };
+
+        let result = parse_callback(params).unwrap();
+        assert_eq!(result.code, "auth-code-456");
+        assert!(result.state.is_none());
+    }
+
+    #[test]
+    fn parse_callback_error_with_description() {
+        let params = CallbackParams {
+            code: None,
+            state: None,
+            error: Some("access_denied".into()),
+            error_description: Some("User denied access".into()),
+        };
+
+        let result = parse_callback(params);
+        assert!(matches!(
+            result,
+            Err(CallbackError::AuthorizationDenied {
+                ref error,
+                ref description,
+            }) if error == "access_denied" && description == "User denied access"
+        ));
+    }
+
+    #[test]
+    fn parse_callback_error_without_description() {
+        let params = CallbackParams {
+            code: None,
+            state: None,
+            error: Some("server_error".into()),
+            error_description: None,
+        };
+
+        let result = parse_callback(params);
+        assert!(matches!(
+            result,
+            Err(CallbackError::AuthorizationDenied {
+                ref error,
+                ref description,
+            }) if error == "server_error" && description.is_empty()
+        ));
+    }
+
+    #[test]
+    fn parse_callback_error_takes_precedence_over_code() {
+        let params = CallbackParams {
+            code: Some("code".into()),
+            state: None,
+            error: Some("access_denied".into()),
+            error_description: Some("denied".into()),
+        };
+
+        let result = parse_callback(params);
+        assert!(matches!(
+            result,
+            Err(CallbackError::AuthorizationDenied { .. })
+        ));
+    }
+
+    #[test]
+    fn parse_callback_missing_code() {
+        let params = CallbackParams {
+            code: None,
+            state: Some("state".into()),
+            error: None,
+            error_description: None,
+        };
+
+        let result = parse_callback(params);
+        assert!(matches!(result, Err(CallbackError::MissingCode)));
+    }
+
+    // --- Integration tests for the full callback listener ---
+
+    #[tokio::test]
+    async fn listener_receives_authorization_code() {
+        let listener = start_callback_listener(0).await.unwrap();
+        let port = listener.port();
+
+        // Send a callback request with a valid code and state.
+        let client = reqwest::Client::new();
+        let response = client
+            .get(format!(
+                "http://127.0.0.1:{port}/?code=abc123&state=test-state"
+            ))
+            .send()
+            .await
+            .unwrap();
+
+        // The server should respond with a success page.
+        assert_eq!(response.status(), reqwest::StatusCode::OK);
+        let body = response.text().await.unwrap();
+        assert!(body.contains("Authorization successful"));
+
+        // The listener should return the code and state.
+        let result = listener.wait().await.unwrap();
+        assert_eq!(result.code, "abc123");
+        assert_eq!(result.state.as_deref(), Some("test-state"));
+    }
+
+    #[tokio::test]
+    async fn listener_receives_code_without_state() {
+        let listener = start_callback_listener(0).await.unwrap();
+        let port = listener.port();
+
+        let client = reqwest::Client::new();
+        client
+            .get(format!("http://127.0.0.1:{port}/?code=abc123"))
+            .send()
+            .await
+            .unwrap();
+
+        let result = listener.wait().await.unwrap();
+        assert_eq!(result.code, "abc123");
+        assert!(result.state.is_none());
+    }
+
+    #[tokio::test]
+    async fn listener_receives_error() {
+        let listener = start_callback_listener(0).await.unwrap();
+        let port = listener.port();
+
+        let client = reqwest::Client::new();
+        let response = client
+            .get(format!(
+                "http://127.0.0.1:{port}/?error=access_denied\
+                 &error_description=User+denied+access"
+            ))
+            .send()
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), reqwest::StatusCode::OK);
+        let body = response.text().await.unwrap();
+        assert!(body.contains("Authorization failed"));
+
+        let result = listener.wait().await;
+        assert!(matches!(
+            result,
+            Err(CallbackError::AuthorizationDenied { .. })
+        ));
+    }
+
+    #[tokio::test]
+    async fn listener_missing_code() {
+        let listener = start_callback_listener(0).await.unwrap();
+        let port = listener.port();
+
+        let client = reqwest::Client::new();
+        client
+            .get(format!("http://127.0.0.1:{port}/?state=test-state"))
+            .send()
+            .await
+            .unwrap();
+
+        let result = listener.wait().await;
+        assert!(matches!(result, Err(CallbackError::MissingCode)));
+    }
+
+    #[tokio::test]
+    async fn listener_port_is_nonzero() {
+        let listener = start_callback_listener(0).await.unwrap();
+        assert_ne!(listener.port(), 0, "should have been assigned a real port");
+
+        // Clean up: send a request so the server shuts down.
+        let client = reqwest::Client::new();
+        let _response = client
+            .get(format!("http://127.0.0.1:{}/?code=x", listener.port()))
+            .send()
+            .await;
+        let _result = listener.wait().await;
+    }
+}

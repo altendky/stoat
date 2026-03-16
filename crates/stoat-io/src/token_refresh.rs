@@ -64,3 +64,167 @@ pub async fn refresh_token(
         .await
         .map_err(TokenRefreshError::Parse)
 }
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+    use std::sync::Arc;
+
+    use axum::extract::Form;
+    use axum::response::IntoResponse;
+    use axum::routing::post;
+    use stoat_core::oauth::TokenRefreshParams;
+    use tokio::sync::Mutex;
+    use url::Url;
+
+    use super::*;
+
+    async fn start_mock_server(handler: axum::Router) -> (u16, tokio::task::JoinHandle<()>) {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let handle = tokio::spawn(async move {
+            axum::serve(listener, handler).await.unwrap();
+        });
+        (port, handle)
+    }
+
+    fn test_refresh_params(port: u16) -> TokenRefreshParams {
+        TokenRefreshParams {
+            token_url: Url::parse(&format!("http://127.0.0.1:{port}/token")).unwrap(),
+            refresh_token: "old-refresh-token".into(),
+            client_id: "test-client".into(),
+        }
+    }
+
+    #[tokio::test]
+    async fn refresh_token_success() {
+        let app = axum::Router::new().route(
+            "/token",
+            post(|| async {
+                axum::Json(serde_json::json!({
+                    "access_token": "new-access-token",
+                    "refresh_token": "new-refresh-token",
+                    "expires_in": 7200,
+                    "token_type": "Bearer"
+                }))
+            }),
+        );
+
+        let (port, _handle) = start_mock_server(app).await;
+        let params = test_refresh_params(port);
+
+        let response = refresh_token(&params).await.unwrap();
+        assert_eq!(response.access_token, "new-access-token");
+        assert_eq!(response.refresh_token.as_deref(), Some("new-refresh-token"));
+        assert_eq!(response.expires_in, Some(7200));
+    }
+
+    #[tokio::test]
+    async fn refresh_token_sends_correct_form_params() {
+        let received = Arc::new(Mutex::new(HashMap::new()));
+        let received_clone = Arc::clone(&received);
+
+        let app = axum::Router::new().route(
+            "/token",
+            post(move |Form(form): Form<HashMap<String, String>>| {
+                let received = Arc::clone(&received_clone);
+                async move {
+                    *received.lock().await = form;
+                    axum::Json(serde_json::json!({
+                        "access_token": "tok",
+                        "expires_in": 3600
+                    }))
+                }
+            }),
+        );
+
+        let (port, _handle) = start_mock_server(app).await;
+        let params = test_refresh_params(port);
+
+        refresh_token(&params).await.unwrap();
+
+        let form = received.lock().await.clone();
+        assert_eq!(form.get("grant_type").unwrap(), "refresh_token");
+        assert_eq!(form.get("refresh_token").unwrap(), "old-refresh-token");
+        assert_eq!(form.get("client_id").unwrap(), "test-client");
+    }
+
+    #[tokio::test]
+    async fn refresh_token_error_status() {
+        let app = axum::Router::new().route(
+            "/token",
+            post(|| async {
+                (
+                    axum::http::StatusCode::UNAUTHORIZED,
+                    "{\"error\": \"invalid_grant\"}",
+                )
+                    .into_response()
+            }),
+        );
+
+        let (port, _handle) = start_mock_server(app).await;
+        let params = test_refresh_params(port);
+
+        let result = refresh_token(&params).await;
+        let err = result.unwrap_err();
+        assert!(
+            matches!(err, TokenRefreshError::Status { status, ref body }
+                if status == reqwest::StatusCode::UNAUTHORIZED
+                && body.contains("invalid_grant")),
+            "expected Status error, got: {err:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn refresh_token_invalid_json() {
+        let app = axum::Router::new().route("/token", post(|| async { "not valid json" }));
+
+        let (port, _handle) = start_mock_server(app).await;
+        let params = test_refresh_params(port);
+
+        let result = refresh_token(&params).await;
+        assert!(
+            matches!(result, Err(TokenRefreshError::Parse(_))),
+            "expected Parse error, got: {result:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn refresh_token_connection_refused() {
+        let params = TokenRefreshParams {
+            token_url: Url::parse("http://127.0.0.1:1/token").unwrap(),
+            refresh_token: "refresh".into(),
+            client_id: "client".into(),
+        };
+
+        let result = refresh_token(&params).await;
+        assert!(
+            matches!(result, Err(TokenRefreshError::Request(_))),
+            "expected Request error, got: {result:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn refresh_token_without_new_refresh_token() {
+        let app = axum::Router::new().route(
+            "/token",
+            post(|| async {
+                axum::Json(serde_json::json!({
+                    "access_token": "new-access",
+                    "expires_in": 3600,
+                    "token_type": "Bearer"
+                }))
+            }),
+        );
+
+        let (port, _handle) = start_mock_server(app).await;
+        let params = test_refresh_params(port);
+
+        let response = refresh_token(&params).await.unwrap();
+        assert_eq!(response.access_token, "new-access");
+        assert!(
+            response.refresh_token.is_none(),
+            "server did not return a new refresh token"
+        );
+    }
+}

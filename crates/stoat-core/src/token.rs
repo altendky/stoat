@@ -66,7 +66,7 @@ impl StoredToken {
     /// Use [`DEFAULT_REFRESH_MARGIN_SECS`] for the standard margin.
     #[must_use]
     pub const fn needs_refresh(&self, now_unix: u64, margin_secs: u64) -> bool {
-        now_unix + margin_secs >= self.expires_at
+        now_unix.saturating_add(margin_secs) >= self.expires_at
     }
 }
 
@@ -369,6 +369,49 @@ mod tests {
             "should preserve the existing refresh token when none is returned"
         );
         assert_eq!(stored.expires_at, 1_700_000_000 + 3600);
+    }
+
+    #[test]
+    fn from_json_ignores_extra_fields() {
+        // Forward compatibility: extra fields in the JSON should be silently ignored.
+        let json = r#"{
+  "access_token": "tok",
+  "refresh_token": "ref",
+  "expires_at": 1000,
+  "some_future_field": "value"
+}"#;
+        let token = StoredToken::from_json(json).unwrap();
+        assert_eq!(token.access_token, "tok");
+    }
+
+    #[test]
+    fn from_json_missing_field_is_error() {
+        let json = r#"{ "access_token": "tok" }"#;
+        assert!(StoredToken::from_json(json).is_err());
+    }
+
+    #[test]
+    fn needs_refresh_no_overflow_at_max() {
+        // When now_unix + margin would overflow u64, should still work.
+        let token = StoredToken {
+            access_token: "a".into(),
+            refresh_token: "r".into(),
+            expires_at: u64::MAX,
+        };
+        // now + margin wraps, but token should not need refresh.
+        // This tests that extremely large values don't panic.
+        assert!(token.needs_refresh(u64::MAX, 60));
+    }
+
+    #[test]
+    fn is_expired_at_zero() {
+        let token = StoredToken {
+            access_token: "a".into(),
+            refresh_token: "r".into(),
+            expires_at: 0,
+        };
+        assert!(token.is_expired(0));
+        assert!(token.is_expired(1));
     }
 
     #[test]

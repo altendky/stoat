@@ -59,3 +59,159 @@ pub async fn exchange_code(
         .await
         .map_err(TokenExchangeError::Parse)
 }
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+    use std::sync::Arc;
+
+    use axum::extract::Form;
+    use axum::response::IntoResponse;
+    use axum::routing::post;
+    use stoat_core::oauth::TokenExchangeParams;
+    use tokio::sync::Mutex;
+    use url::Url;
+
+    use super::*;
+
+    /// Start a mock token endpoint that returns a valid token response.
+    async fn start_mock_token_server(handler: axum::Router) -> (u16, tokio::task::JoinHandle<()>) {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let handle = tokio::spawn(async move {
+            axum::serve(listener, handler).await.unwrap();
+        });
+        (port, handle)
+    }
+
+    fn test_exchange_params(port: u16) -> TokenExchangeParams {
+        TokenExchangeParams {
+            token_url: Url::parse(&format!("http://127.0.0.1:{port}/token")).unwrap(),
+            code: "auth-code-123".into(),
+            redirect_uri: Url::parse("http://localhost:8080/callback").unwrap(),
+            client_id: "test-client".into(),
+            code_verifier: Some("test-verifier".into()),
+        }
+    }
+
+    #[tokio::test]
+    async fn exchange_code_success() {
+        let app = axum::Router::new().route(
+            "/token",
+            post(|| async {
+                axum::Json(serde_json::json!({
+                    "access_token": "test-access-token",
+                    "refresh_token": "test-refresh-token",
+                    "expires_in": 3600,
+                    "token_type": "Bearer"
+                }))
+            }),
+        );
+
+        let (port, _handle) = start_mock_token_server(app).await;
+        let params = test_exchange_params(port);
+
+        let response = exchange_code(&params).await.unwrap();
+        assert_eq!(response.access_token, "test-access-token");
+        assert_eq!(
+            response.refresh_token.as_deref(),
+            Some("test-refresh-token")
+        );
+        assert_eq!(response.expires_in, Some(3600));
+    }
+
+    #[tokio::test]
+    async fn exchange_code_receives_form_params() {
+        let received = Arc::new(Mutex::new(HashMap::new()));
+        let received_clone = Arc::clone(&received);
+
+        let app = axum::Router::new().route(
+            "/token",
+            post(move |Form(form): Form<HashMap<String, String>>| {
+                let received = Arc::clone(&received_clone);
+                async move {
+                    *received.lock().await = form;
+                    axum::Json(serde_json::json!({
+                        "access_token": "tok",
+                        "refresh_token": "ref",
+                        "expires_in": 3600,
+                        "token_type": "Bearer"
+                    }))
+                }
+            }),
+        );
+
+        let (port, _handle) = start_mock_token_server(app).await;
+        let params = test_exchange_params(port);
+
+        exchange_code(&params).await.unwrap();
+
+        let form = received.lock().await.clone();
+        assert_eq!(form.get("grant_type").unwrap(), "authorization_code");
+        assert_eq!(form.get("code").unwrap(), "auth-code-123");
+        assert_eq!(form.get("client_id").unwrap(), "test-client");
+        assert_eq!(form.get("code_verifier").unwrap(), "test-verifier");
+        assert_eq!(
+            form.get("redirect_uri").unwrap(),
+            "http://localhost:8080/callback"
+        );
+    }
+
+    #[tokio::test]
+    async fn exchange_code_error_status() {
+        let app = axum::Router::new().route(
+            "/token",
+            post(|| async {
+                (
+                    axum::http::StatusCode::BAD_REQUEST,
+                    "{\"error\": \"invalid_grant\"}",
+                )
+                    .into_response()
+            }),
+        );
+
+        let (port, _handle) = start_mock_token_server(app).await;
+        let params = test_exchange_params(port);
+
+        let result = exchange_code(&params).await;
+        let err = result.unwrap_err();
+        assert!(
+            matches!(err, TokenExchangeError::Status { status, ref body }
+                if status == reqwest::StatusCode::BAD_REQUEST
+                && body.contains("invalid_grant")),
+            "expected Status error, got: {err:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn exchange_code_invalid_json() {
+        let app = axum::Router::new().route("/token", post(|| async { "this is not json" }));
+
+        let (port, _handle) = start_mock_token_server(app).await;
+        let params = test_exchange_params(port);
+
+        let result = exchange_code(&params).await;
+        assert!(
+            matches!(result, Err(TokenExchangeError::Parse(_))),
+            "expected Parse error, got: {result:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn exchange_code_connection_refused() {
+        // Use a port that nothing is listening on.
+        let params = TokenExchangeParams {
+            token_url: Url::parse("http://127.0.0.1:1/token").unwrap(),
+            code: "code".into(),
+            redirect_uri: Url::parse("http://localhost/callback").unwrap(),
+            client_id: "client".into(),
+            code_verifier: None,
+        };
+
+        let result = exchange_code(&params).await;
+        assert!(
+            matches!(result, Err(TokenExchangeError::Request(_))),
+            "expected Request error, got: {result:?}"
+        );
+    }
+}

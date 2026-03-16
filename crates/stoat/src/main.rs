@@ -51,7 +51,11 @@ async fn main() -> ExitCode {
     let toml_str = match stoat_io::read_file(config_path) {
         Ok(s) => s,
         Err(e) => {
-            eprintln!("error: failed to read config file: {e}");
+            eprintln!(
+                "error: failed to read config file: {}",
+                format_error_chain(&e)
+            );
+            eprintln!("hint: check that the file exists and the path is correct");
             return ExitCode::FAILURE;
         }
     };
@@ -59,7 +63,7 @@ async fn main() -> ExitCode {
     let config = match Config::from_toml(&toml_str) {
         Ok(c) => c,
         Err(e) => {
-            eprintln!("error: invalid config: {e}");
+            eprintln!("error: invalid config: {}", format_error_chain(&e));
             return ExitCode::FAILURE;
         }
     };
@@ -129,7 +133,11 @@ async fn run_login(config: &Config) -> ExitCode {
     let token_response = match stoat_io::token_exchange::exchange_code(&exchange_params).await {
         Ok(r) => r,
         Err(e) => {
-            eprintln!("error: token exchange failed: {e}");
+            eprintln!("error: token exchange failed: {}", format_error_chain(&e));
+            eprintln!(
+                "hint: check that your OAuth configuration \
+                 (token_url, client_id, redirect_uri) is correct"
+            );
             return ExitCode::FAILURE;
         }
     };
@@ -143,14 +151,15 @@ async fn run_login(config: &Config) -> ExitCode {
     let stored_token = match token_response.into_stored_token(now_unix) {
         Ok(t) => t,
         Err(e) => {
-            eprintln!("error: {e}");
+            eprintln!("error: {}", format_error_chain(&e));
             return ExitCode::FAILURE;
         }
     };
 
     // Write tokens to file.
     if let Err(e) = stoat_io::token_store::write_token(&token_path, &stored_token) {
-        eprintln!("error: {e}");
+        eprintln!("error: {}", format_error_chain(&e));
+        eprintln!("hint: check file permissions for the token storage directory");
         return ExitCode::FAILURE;
     }
 
@@ -183,7 +192,7 @@ async fn run_serve(config: Config) -> ExitCode {
 
     // Start the proxy server.
     if let Err(e) = stoat_io::proxy::start(config, token_path).await {
-        eprintln!("error: {e}");
+        eprintln!("error: {}", format_error_chain(&e));
         return ExitCode::FAILURE;
     }
 
@@ -205,7 +214,7 @@ async fn receive_code_via_callback(
     let listener = match stoat_io::callback::start_callback_listener(port).await {
         Ok(l) => l,
         Err(e) => {
-            eprintln!("error: {e}");
+            eprintln!("error: {}", format_error_chain(&e));
             return Err(ExitCode::FAILURE);
         }
     };
@@ -218,7 +227,7 @@ async fn receive_code_via_callback(
     // Open the browser.
     eprintln!("Opening browser for authorization...");
     if let Err(e) = stoat_io::browser::open_browser(auth_url) {
-        eprintln!("warning: {e}");
+        eprintln!("warning: {}", format_error_chain(&e));
         eprintln!("Please open this URL in your browser manually:");
         eprintln!("  {auth_url}");
     }
@@ -227,7 +236,7 @@ async fn receive_code_via_callback(
     let callback = match listener.wait().await {
         Ok(r) => r,
         Err(e) => {
-            eprintln!("error: {e}");
+            eprintln!("error: {}", format_error_chain(&e));
             return Err(ExitCode::FAILURE);
         }
     };
@@ -245,11 +254,31 @@ async fn receive_code_via_callback(
     Ok(callback.code)
 }
 
+/// Format an error and its entire source chain for user display.
+///
+/// Produces output like:
+///
+/// ```text
+/// top-level message
+///   caused by: intermediate error
+///   caused by: root cause
+/// ```
+fn format_error_chain(error: &dyn std::error::Error) -> String {
+    use std::fmt::Write as _;
+    let mut msg = error.to_string();
+    let mut source = error.source();
+    while let Some(cause) = source {
+        let _ = write!(msg, "\n  caused by: {cause}");
+        source = cause.source();
+    }
+    msg
+}
+
 /// Receive the authorization code via terminal paste.
 fn receive_code_via_paste(auth_url: &url::Url) -> Result<String, ExitCode> {
     eprintln!("Opening browser for authorization...");
     if let Err(e) = stoat_io::browser::open_browser(auth_url) {
-        eprintln!("warning: {e}");
+        eprintln!("warning: {}", format_error_chain(&e));
         eprintln!("Please open this URL in your browser manually:");
         eprintln!("  {auth_url}");
     }
@@ -259,7 +288,10 @@ fn receive_code_via_paste(auth_url: &url::Url) -> Result<String, ExitCode> {
     match stoat_io::paste::read_authorization_code(&mut stdin, &mut stderr) {
         Ok(code) => Ok(code),
         Err(e) => {
-            eprintln!("error: failed to read authorization code: {e}");
+            eprintln!(
+                "error: failed to read authorization code: {}",
+                format_error_chain(&e)
+            );
             Err(ExitCode::FAILURE)
         }
     }
