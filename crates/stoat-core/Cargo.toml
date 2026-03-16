@@ -6,6 +6,7 @@ rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 homepage.workspace = true
+readme.workspace = true
 description = "Core logic for stoat (sans-IO) — config types, PKCE, request transformation"
 keywords = ["oauth", "proxy", "sans-io"]
 categories = ["authentication"]

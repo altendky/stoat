@@ -1,5 +1,9 @@
 # stoat
 
+[![CI](https://github.com/altendky/stoat/actions/workflows/ci.yml/badge.svg)](https://github.com/altendky/stoat/actions/workflows/ci.yml)
+[![crates.io](https://img.shields.io/crates/v/stoat.svg)](https://crates.io/crates/stoat)
+[![License](https://img.shields.io/crates/l/stoat.svg)](https://github.com/altendky/stoat#license)
+
 ## Streaming OAuth Transformer
 
 A config-driven local reverse proxy that manages OAuth token lifecycle and transforms requests so downstream clients can talk to OAuth-protected APIs using simple authentication.
@@ -16,7 +20,25 @@ graph LR
 
 ## Status
 
-Pre-implementation. See the [implementation roadmap](docs/src/project/implementation.md) for what's planned.
+Early release (`0.1.0`). Core functionality is implemented: OAuth PKCE login flow, token storage and refresh, and streaming reverse proxy with configurable request transformation. See the [implementation roadmap](docs/src/project/implementation.md) for details.
+
+## Installation
+
+### Pre-built binaries
+
+Download from [GitHub Releases](https://github.com/altendky/stoat/releases/latest). Binaries are available for:
+
+- Linux (x86_64, aarch64) -- statically linked
+- macOS (x86_64, Apple Silicon)
+- Windows (x86_64)
+
+### From source
+
+```sh
+cargo install stoat
+```
+
+Requires Rust 1.89 or later.
 
 ## Usage
 
