@@ -5,6 +5,8 @@
 
 use std::io::{BufRead, Write};
 
+use stoat_core::oauth::strip_code_fragment;
+
 /// Read an authorization code from the terminal.
 ///
 /// Prints a prompt to the given writer (typically stderr), then reads a
@@ -27,7 +29,7 @@ pub fn read_authorization_code(
     let mut line = String::new();
     reader.read_line(&mut line)?;
 
-    Ok(line.trim().to_owned())
+    Ok(strip_code_fragment(line.trim()).to_owned())
 }
 
 #[cfg(test)]
@@ -61,5 +63,14 @@ mod tests {
 
         let code = read_authorization_code(&mut input, &mut output).unwrap();
         assert_eq!(code, "");
+    }
+
+    #[test]
+    fn strips_fragment_from_pasted_code() {
+        let mut input = Cursor::new(b"code123#fragment\n");
+        let mut output = Vec::new();
+
+        let code = read_authorization_code(&mut input, &mut output).unwrap();
+        assert_eq!(code, "code123");
     }
 }

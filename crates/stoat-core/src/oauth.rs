@@ -108,6 +108,17 @@ pub fn redirect_port(url: &Url) -> Option<u16> {
     url.port()
 }
 
+/// Strip a URI fragment suffix from a pasted authorization code.
+///
+/// Some OAuth providers display the authorization code alongside a
+/// fragment (e.g. `CODE#STATE`).  The `#` character is a URI fragment
+/// delimiter and is never part of a valid authorization code, so
+/// everything from the first `#` onward can be safely removed.
+#[must_use]
+pub fn strip_code_fragment(code: &str) -> &str {
+    code.split_once('#').map_or(code, |(before, _)| before)
+}
+
 impl TokenExchangeParams {
     /// Build the form parameters for the token exchange POST body.
     #[must_use]
@@ -502,5 +513,30 @@ redirect_uri = "https://example.com/oauth/callback"
         assert_eq!(body.get("refresh_token"), Some(&"my-refresh-token"));
         assert_eq!(body.get("client_id"), Some(&"test-client"));
         assert_eq!(body.len(), 3);
+    }
+
+    #[test]
+    fn strip_code_fragment_removes_suffix() {
+        assert_eq!(strip_code_fragment("abc123#state"), "abc123");
+    }
+
+    #[test]
+    fn strip_code_fragment_no_fragment() {
+        assert_eq!(strip_code_fragment("abc123"), "abc123");
+    }
+
+    #[test]
+    fn strip_code_fragment_empty_fragment() {
+        assert_eq!(strip_code_fragment("abc123#"), "abc123");
+    }
+
+    #[test]
+    fn strip_code_fragment_empty_string() {
+        assert_eq!(strip_code_fragment(""), "");
+    }
+
+    #[test]
+    fn strip_code_fragment_multiple_hashes() {
+        assert_eq!(strip_code_fragment("abc#foo#bar"), "abc");
     }
 }
