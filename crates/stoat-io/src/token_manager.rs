@@ -7,6 +7,7 @@
 
 use std::path::Path;
 
+use stoat_core::config::TokenFormat;
 use stoat_core::oauth::TokenRefreshParams;
 use stoat_core::token::{DEFAULT_REFRESH_MARGIN_SECS, StoredToken};
 use url::Url;
@@ -51,6 +52,7 @@ pub async fn load_valid_token(
     token_path: &Path,
     token_url: &Url,
     client_id: &str,
+    token_format: TokenFormat,
     now_unix: u64,
 ) -> Result<StoredToken, TokenManagerError> {
     let token = token_store::read_token(token_path).map_err(TokenManagerError::Load)?;
@@ -63,6 +65,7 @@ pub async fn load_valid_token(
         token_url: token_url.clone(),
         refresh_token: token.refresh_token.clone(),
         client_id: client_id.to_owned(),
+        token_format,
     };
 
     let response = token_refresh::refresh_token(&refresh_params)
@@ -79,6 +82,7 @@ pub async fn load_valid_token(
 #[cfg(test)]
 mod tests {
     use axum::routing::post;
+    use stoat_core::config::TokenFormat;
     use stoat_core::token::StoredToken;
     use url::Url;
 
@@ -115,7 +119,14 @@ mod tests {
         token_store::write_token(&token_path, &token).unwrap();
 
         let token_url = Url::parse("http://127.0.0.1:1/token").unwrap();
-        let result = load_valid_token(&token_path, &token_url, "client-id", 1_000).await;
+        let result = load_valid_token(
+            &token_path,
+            &token_url,
+            "client-id",
+            TokenFormat::Form,
+            1_000,
+        )
+        .await;
 
         let loaded = result.unwrap();
         assert_eq!(loaded.access_token, "valid-access");
@@ -147,9 +158,15 @@ mod tests {
         let (port, _handle) = start_mock_refresh_server(app).await;
         let token_url = Url::parse(&format!("http://127.0.0.1:{port}/token")).unwrap();
 
-        let loaded = load_valid_token(&token_path, &token_url, "client-id", 1_000)
-            .await
-            .unwrap();
+        let loaded = load_valid_token(
+            &token_path,
+            &token_url,
+            "client-id",
+            TokenFormat::Form,
+            1_000,
+        )
+        .await
+        .unwrap();
 
         assert_eq!(loaded.access_token, "refreshed-access");
         assert_eq!(loaded.refresh_token, "refreshed-refresh");
@@ -183,9 +200,15 @@ mod tests {
         let (port, _handle) = start_mock_refresh_server(app).await;
         let token_url = Url::parse(&format!("http://127.0.0.1:{port}/token")).unwrap();
 
-        let loaded = load_valid_token(&token_path, &token_url, "client-id", 1_000)
-            .await
-            .unwrap();
+        let loaded = load_valid_token(
+            &token_path,
+            &token_url,
+            "client-id",
+            TokenFormat::Form,
+            1_000,
+        )
+        .await
+        .unwrap();
 
         assert_eq!(loaded.access_token, "margin-refreshed");
     }
@@ -196,7 +219,14 @@ mod tests {
         let token_path = dir.path().join("nonexistent.json");
         let token_url = Url::parse("http://127.0.0.1:1/token").unwrap();
 
-        let result = load_valid_token(&token_path, &token_url, "client-id", 1_000).await;
+        let result = load_valid_token(
+            &token_path,
+            &token_url,
+            "client-id",
+            TokenFormat::Form,
+            1_000,
+        )
+        .await;
         assert!(
             matches!(result, Err(TokenManagerError::Load(_))),
             "expected Load error, got: {result:?}"
@@ -215,7 +245,14 @@ mod tests {
         // Point to a non-existent server so refresh fails.
         let token_url = Url::parse("http://127.0.0.1:1/token").unwrap();
 
-        let result = load_valid_token(&token_path, &token_url, "client-id", 1_000).await;
+        let result = load_valid_token(
+            &token_path,
+            &token_url,
+            "client-id",
+            TokenFormat::Form,
+            1_000,
+        )
+        .await;
         assert!(
             matches!(result, Err(TokenManagerError::Refresh(_))),
             "expected Refresh error, got: {result:?}"
@@ -245,9 +282,15 @@ mod tests {
         let (port, _handle) = start_mock_refresh_server(app).await;
         let token_url = Url::parse(&format!("http://127.0.0.1:{port}/token")).unwrap();
 
-        let loaded = load_valid_token(&token_path, &token_url, "client-id", 1_000)
-            .await
-            .unwrap();
+        let loaded = load_valid_token(
+            &token_path,
+            &token_url,
+            "client-id",
+            TokenFormat::Form,
+            1_000,
+        )
+        .await
+        .unwrap();
 
         assert_eq!(loaded.access_token, "new-access");
         assert_eq!(

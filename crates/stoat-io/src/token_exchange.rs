@@ -3,6 +3,7 @@
 //! Sends the authorization code to the token endpoint and returns the
 //! token response.
 
+use stoat_core::config::TokenFormat;
 use stoat_core::oauth::TokenExchangeParams;
 use stoat_core::token::TokenResponse;
 
@@ -38,12 +39,13 @@ pub async fn exchange_code(
 ) -> Result<TokenResponse, TokenExchangeError> {
     let client = reqwest::Client::new();
 
-    let response = client
-        .post(params.token_url.as_str())
-        .form(&params.form_params())
-        .send()
-        .await
-        .map_err(TokenExchangeError::Request)?;
+    let request = client.post(params.token_url.as_str());
+    let request = match params.token_format {
+        TokenFormat::Form => request.form(&params.form_params()),
+        TokenFormat::Json => request.json(&params.json_body()),
+    };
+
+    let response = request.send().await.map_err(TokenExchangeError::Request)?;
 
     let status = response.status();
     if !status.is_success() {
@@ -68,6 +70,7 @@ mod tests {
     use axum::extract::Form;
     use axum::response::IntoResponse;
     use axum::routing::post;
+    use stoat_core::config::TokenFormat;
     use stoat_core::oauth::TokenExchangeParams;
     use tokio::sync::Mutex;
     use url::Url;
@@ -91,6 +94,7 @@ mod tests {
             redirect_uri: Url::parse("http://localhost:8080/callback").unwrap(),
             client_id: "test-client".into(),
             code_verifier: Some("test-verifier".into()),
+            token_format: TokenFormat::Form,
         }
     }
 
@@ -206,12 +210,53 @@ mod tests {
             redirect_uri: Url::parse("http://localhost/callback").unwrap(),
             client_id: "client".into(),
             code_verifier: None,
+            token_format: TokenFormat::Form,
         };
 
         let result = exchange_code(&params).await;
         assert!(
             matches!(result, Err(TokenExchangeError::Request(_))),
             "expected Request error, got: {result:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn exchange_code_sends_json_body() {
+        let received = Arc::new(Mutex::new(HashMap::new()));
+        let received_clone = Arc::clone(&received);
+
+        let app = axum::Router::new().route(
+            "/token",
+            post(
+                move |axum::Json(json): axum::Json<HashMap<String, String>>| {
+                    let received = Arc::clone(&received_clone);
+                    async move {
+                        *received.lock().await = json;
+                        axum::Json(serde_json::json!({
+                            "access_token": "tok",
+                            "refresh_token": "ref",
+                            "expires_in": 3600,
+                            "token_type": "Bearer"
+                        }))
+                    }
+                },
+            ),
+        );
+
+        let (port, _handle) = start_mock_token_server(app).await;
+        let mut params = test_exchange_params(port);
+        params.token_format = TokenFormat::Json;
+
+        exchange_code(&params).await.unwrap();
+
+        let json = received.lock().await.clone();
+        assert_eq!(json.get("grant_type").unwrap(), "authorization_code");
+        assert_eq!(json.get("code").unwrap(), "auth-code-123");
+        assert_eq!(json.get("client_id").unwrap(), "test-client");
+        assert_eq!(json.get("code_verifier").unwrap(), "test-verifier");
+        assert_eq!(
+            json.get("redirect_uri").unwrap(),
+            "http://localhost:8080/callback"
         );
     }
 }

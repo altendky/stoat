@@ -28,6 +28,7 @@ client_id = "your-client-id"
 scopes = ["scope1", "scope2"]
 pkce = true
 redirect_uri = "https://example.com/oauth/callback"
+token_format = "form"
 
 # Request transformations applied to every proxied request.
 [translation]
@@ -58,6 +59,7 @@ Authorization = "Bearer {access_token}"
 | `oauth.scopes` | Yes | OAuth scopes to request |
 | `oauth.pkce` | No | Enable PKCE (S256). Default: `true` |
 | `oauth.redirect_uri` | Yes | Redirect URI for the OAuth flow |
+| `oauth.token_format` | No | Token endpoint body format: `"form"` (default) or `"json"` |
 | `translation.strip_headers` | No | List of header names to remove from incoming requests |
 | `translation.set_headers` | No | Map of header name to value to set on outgoing requests |
 | `translation.query_params` | No | Map of query parameter name to value to append |

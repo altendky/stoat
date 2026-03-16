@@ -195,6 +195,7 @@ async fn handle_proxy_request(
         &state.token_path,
         &state.config.oauth.token_url,
         &state.config.oauth.client_id,
+        state.config.oauth.token_format(),
         now_unix,
     )
     .await

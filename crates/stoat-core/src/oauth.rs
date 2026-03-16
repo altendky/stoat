@@ -4,11 +4,13 @@
 //! OAuth 2.0 PKCE authorization code flow. This module is pure — it only
 //! manipulates URLs and strings.
 
+use std::collections::HashMap;
+
 use base64::Engine;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use url::Url;
 
-use crate::config::OAuth;
+use crate::config::{OAuth, TokenFormat};
 use crate::pkce::PkceChallenge;
 
 /// Parameters for constructing an authorization URL.
@@ -70,6 +72,8 @@ pub struct TokenExchangeParams {
     pub client_id: String,
     /// The PKCE code verifier (if PKCE was used).
     pub code_verifier: Option<String>,
+    /// The body format for the token endpoint request.
+    pub token_format: TokenFormat,
 }
 
 /// Generate a random state parameter for CSRF protection.
@@ -118,6 +122,22 @@ impl TokenExchangeParams {
 
         params
     }
+
+    /// Build a JSON-serializable map for the token exchange POST body.
+    #[must_use]
+    pub fn json_body(&self) -> HashMap<&str, &str> {
+        let mut map = HashMap::new();
+        map.insert("grant_type", "authorization_code");
+        map.insert("code", &self.code);
+        map.insert("redirect_uri", self.redirect_uri.as_str());
+        map.insert("client_id", &self.client_id);
+
+        if let Some(verifier) = &self.code_verifier {
+            map.insert("code_verifier", verifier);
+        }
+
+        map
+    }
 }
 
 /// Parameters for the token refresh request body.
@@ -132,6 +152,8 @@ pub struct TokenRefreshParams {
     pub refresh_token: String,
     /// The OAuth client identifier.
     pub client_id: String,
+    /// The body format for the token endpoint request.
+    pub token_format: TokenFormat,
 }
 
 impl TokenRefreshParams {
@@ -144,12 +166,22 @@ impl TokenRefreshParams {
             ("client_id", &self.client_id),
         ]
     }
+
+    /// Build a JSON-serializable map for the token refresh POST body.
+    #[must_use]
+    pub fn json_body(&self) -> HashMap<&str, &str> {
+        let mut map = HashMap::new();
+        map.insert("grant_type", "refresh_token");
+        map.insert("refresh_token", &self.refresh_token);
+        map.insert("client_id", &self.client_id);
+        map
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::Config;
+    use crate::config::{Config, TokenFormat};
 
     const MINIMAL_CONFIG: &str = r#"
 [upstream]
@@ -243,6 +275,7 @@ redirect_uri = "https://example.com/oauth/callback"
             redirect_uri: Url::parse("https://example.com/oauth/callback").unwrap(),
             client_id: "test-client".into(),
             code_verifier: Some("my-verifier".into()),
+            token_format: TokenFormat::Form,
         };
 
         let form = params.form_params();
@@ -261,10 +294,48 @@ redirect_uri = "https://example.com/oauth/callback"
             redirect_uri: Url::parse("https://example.com/oauth/callback").unwrap(),
             client_id: "test-client".into(),
             code_verifier: None,
+            token_format: TokenFormat::Form,
         };
 
         let form = params.form_params();
         assert!(!form.iter().any(|(k, _)| *k == "code_verifier"));
+    }
+
+    #[test]
+    fn token_exchange_json_body_with_pkce() {
+        let params = TokenExchangeParams {
+            token_url: Url::parse("https://example.com/oauth/token").unwrap(),
+            code: "auth-code-123".into(),
+            redirect_uri: Url::parse("https://example.com/oauth/callback").unwrap(),
+            client_id: "test-client".into(),
+            code_verifier: Some("my-verifier".into()),
+            token_format: TokenFormat::Json,
+        };
+
+        let body = params.json_body();
+        assert_eq!(body.get("grant_type"), Some(&"authorization_code"));
+        assert_eq!(body.get("code"), Some(&"auth-code-123"));
+        assert_eq!(
+            body.get("redirect_uri"),
+            Some(&"https://example.com/oauth/callback")
+        );
+        assert_eq!(body.get("client_id"), Some(&"test-client"));
+        assert_eq!(body.get("code_verifier"), Some(&"my-verifier"));
+    }
+
+    #[test]
+    fn token_exchange_json_body_without_pkce() {
+        let params = TokenExchangeParams {
+            token_url: Url::parse("https://example.com/oauth/token").unwrap(),
+            code: "auth-code-123".into(),
+            redirect_uri: Url::parse("https://example.com/oauth/callback").unwrap(),
+            client_id: "test-client".into(),
+            code_verifier: None,
+            token_format: TokenFormat::Json,
+        };
+
+        let body = params.json_body();
+        assert!(!body.contains_key("code_verifier"));
     }
 
     #[test]
@@ -328,6 +399,7 @@ redirect_uri = "https://example.com/oauth/callback"
             token_url: Url::parse("https://example.com/oauth/token").unwrap(),
             refresh_token: "my-refresh-token".into(),
             client_id: "test-client".into(),
+            token_format: TokenFormat::Form,
         };
 
         let form = params.form_params();
@@ -335,5 +407,21 @@ redirect_uri = "https://example.com/oauth/callback"
         assert!(form.contains(&("refresh_token", "my-refresh-token")));
         assert!(form.contains(&("client_id", "test-client")));
         assert_eq!(form.len(), 3);
+    }
+
+    #[test]
+    fn token_refresh_json_body() {
+        let params = TokenRefreshParams {
+            token_url: Url::parse("https://example.com/oauth/token").unwrap(),
+            refresh_token: "my-refresh-token".into(),
+            client_id: "test-client".into(),
+            token_format: TokenFormat::Json,
+        };
+
+        let body = params.json_body();
+        assert_eq!(body.get("grant_type"), Some(&"refresh_token"));
+        assert_eq!(body.get("refresh_token"), Some(&"my-refresh-token"));
+        assert_eq!(body.get("client_id"), Some(&"test-client"));
+        assert_eq!(body.len(), 3);
     }
 }
