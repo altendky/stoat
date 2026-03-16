@@ -12,6 +12,7 @@ use stoat_core::oauth::{
     is_localhost_redirect, redirect_port,
 };
 use stoat_core::pkce::PkceChallenge;
+use tracing_subscriber::EnvFilter;
 
 /// Streaming OAuth Transformer — a config-driven local reverse proxy for
 /// OAuth token lifecycle management.
@@ -65,10 +66,7 @@ async fn main() -> ExitCode {
 
     match &cli.command {
         Commands::Login { .. } => run_login(&config).await,
-        Commands::Serve { .. } => {
-            eprintln!("error: `stoat serve` is not yet implemented");
-            ExitCode::FAILURE
-        }
+        Commands::Serve { .. } => run_serve(config).await,
     }
 }
 
@@ -157,6 +155,38 @@ async fn run_login(config: &Config) -> ExitCode {
     }
 
     eprintln!("Tokens saved to {}", token_path.display());
+    ExitCode::SUCCESS
+}
+
+async fn run_serve(config: Config) -> ExitCode {
+    // Set up tracing subscriber to log to stderr.
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
+        )
+        .with_writer(std::io::stderr)
+        .init();
+
+    // Resolve the token file path.
+    let Some(home_dir) = stoat_io::home_dir() else {
+        eprintln!("error: could not determine home directory");
+        return ExitCode::FAILURE;
+    };
+    let token_path = stoat_core::paths::expand_tilde(config.token_file_path(), &home_dir);
+
+    // Verify the token file exists before starting the server.
+    if !token_path.exists() {
+        eprintln!("error: token file not found: {}", token_path.display());
+        eprintln!("hint: run `stoat login --config <config>` first to obtain OAuth tokens");
+        return ExitCode::FAILURE;
+    }
+
+    // Start the proxy server.
+    if let Err(e) = stoat_io::proxy::start(config, token_path).await {
+        eprintln!("error: {e}");
+        return ExitCode::FAILURE;
+    }
+
     ExitCode::SUCCESS
 }
 

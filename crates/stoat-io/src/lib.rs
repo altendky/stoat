@@ -18,6 +18,7 @@ use std::path::{Path, PathBuf};
 pub mod browser;
 pub mod callback;
 pub mod paste;
+pub mod proxy;
 pub mod token_exchange;
 pub mod token_manager;
 pub mod token_refresh;
