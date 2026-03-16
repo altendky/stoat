@@ -250,6 +250,20 @@ mod tests {
     }
 
     #[test]
+    fn upstream_url_deep_path() {
+        let base = Url::parse("https://api.example.com/v1").unwrap();
+        let url = build_upstream_url(&base, "/a/b/c/d", None, None);
+        assert_eq!(url.as_str(), "https://api.example.com/v1/a/b/c/d");
+    }
+
+    #[test]
+    fn upstream_url_preserves_encoded_path() {
+        let base = Url::parse("https://api.example.com").unwrap();
+        let url = build_upstream_url(&base, "/path%20with%20spaces", None, None);
+        assert_eq!(url.as_str(), "https://api.example.com/path%20with%20spaces");
+    }
+
+    #[test]
     fn upstream_url_extra_params_encoded() {
         let base = Url::parse("https://api.example.com").unwrap();
         let mut extra = HashMap::new();

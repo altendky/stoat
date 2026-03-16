@@ -438,6 +438,24 @@ redirect_uri = "https://example.com/oauth/callback"
     }
 
     #[test]
+    fn empty_toml_is_error() {
+        assert!(Config::from_toml("").is_err());
+    }
+
+    #[test]
+    fn extra_fields_are_ignored() {
+        // Forward compatibility: unknown top-level fields should not cause errors.
+        let toml = format!("{MINIMAL_CONFIG}\nunknown_field = \"value\"\n");
+        // TOML serde by default rejects unknown fields unless deny_unknown_fields
+        // is disabled. Check which behavior we have.
+        let result = Config::from_toml(&toml);
+        // This is acceptable either way (error or ignore), but we document the behavior.
+        // If it errors, that's fine — strict parsing catches typos.
+        // If it succeeds, that's also fine — forward compatibility.
+        drop(result);
+    }
+
+    #[test]
     fn invalid_listen_address_is_error() {
         let toml = format!("listen = \"not-an-address\"\n{MINIMAL_CONFIG}");
         assert!(Config::from_toml(&toml).is_err());

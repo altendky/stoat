@@ -51,8 +51,8 @@
 
 ## Phase 6: Polish
 
-- [ ] Error handling and user-facing error messages
-- [ ] Add unit tests for `stoat-core` (pure logic, no mocking needed)
-- [ ] Add integration tests for `stoat-io`
+- [x] Error handling and user-facing error messages
+- [x] Add unit tests for `stoat-core` (pure logic, no mocking needed)
+- [x] Add integration tests for `stoat-io`
 - [ ] Test with a real OAuth provider
 - [ ] Verify streaming behavior with SSE responses
