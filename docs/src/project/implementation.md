@@ -41,13 +41,13 @@
 
 ## Phase 5: Proxy Server
 
-- [ ] Implement request transformation logic in `stoat-core` (header strip/set, query param append, template resolution)
-- [ ] Implement `axum` HTTP server with configurable bind address in `stoat-io`
-- [ ] Implement port 0 support and port reporting to stdout
-- [ ] Implement upstream request forwarding via `reqwest` in `stoat-io` (preserving path and body)
-- [ ] Implement streaming response forwarding (chunked/SSE pass-through)
-- [ ] Integrate token refresh with proxy (refresh before forwarding if expired)
-- [ ] Implement `tracing` logging to stderr
+- [x] Implement request transformation logic in `stoat-core` (header strip/set, query param append, template resolution)
+- [x] Implement `axum` HTTP server with configurable bind address in `stoat-io`
+- [x] Implement port 0 support and port reporting to stdout
+- [x] Implement upstream request forwarding via `reqwest` in `stoat-io` (preserving path and body)
+- [x] Implement streaming response forwarding (chunked/SSE pass-through)
+- [x] Integrate token refresh with proxy (refresh before forwarding if expired)
+- [x] Implement `tracing` logging to stderr
 
 ## Phase 6: Polish
 
