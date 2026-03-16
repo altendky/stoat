@@ -34,10 +34,10 @@
 
 ## Phase 4: Token Management
 
-- [ ] Define token types and expiry checking in `stoat-core`
-- [ ] Implement token file loading in `stoat-io`
-- [ ] Implement token refresh (POST to `token_url` with `grant_type=refresh_token`) in `stoat-io`
-- [ ] Implement token file update after refresh in `stoat-io`
+- [x] Define token types and expiry checking in `stoat-core`
+- [x] Implement token file loading in `stoat-io`
+- [x] Implement token refresh (POST to `token_url` with `grant_type=refresh_token`) in `stoat-io`
+- [x] Implement token file update after refresh in `stoat-io`
 
 ## Phase 5: Proxy Server
 

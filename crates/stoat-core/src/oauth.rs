@@ -120,6 +120,32 @@ impl TokenExchangeParams {
     }
 }
 
+/// Parameters for the token refresh request body.
+///
+/// This is a pure data structure — the actual HTTP POST is performed by the
+/// I/O layer. Corresponds to an OAuth 2.0 `grant_type=refresh_token` request.
+#[derive(Debug, Clone)]
+pub struct TokenRefreshParams {
+    /// The token endpoint URL.
+    pub token_url: Url,
+    /// The refresh token to exchange for a new access token.
+    pub refresh_token: String,
+    /// The OAuth client identifier.
+    pub client_id: String,
+}
+
+impl TokenRefreshParams {
+    /// Build the form parameters for the token refresh POST body.
+    #[must_use]
+    pub fn form_params(&self) -> Vec<(&str, &str)> {
+        vec![
+            ("grant_type", "refresh_token"),
+            ("refresh_token", &self.refresh_token),
+            ("client_id", &self.client_id),
+        ]
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -294,5 +320,20 @@ redirect_uri = "https://example.com/oauth/callback"
     fn redirect_port_default() {
         let url = Url::parse("http://localhost/callback").unwrap();
         assert_eq!(redirect_port(&url), None);
+    }
+
+    #[test]
+    fn token_refresh_params_form() {
+        let params = TokenRefreshParams {
+            token_url: Url::parse("https://example.com/oauth/token").unwrap(),
+            refresh_token: "my-refresh-token".into(),
+            client_id: "test-client".into(),
+        };
+
+        let form = params.form_params();
+        assert!(form.contains(&("grant_type", "refresh_token")));
+        assert!(form.contains(&("refresh_token", "my-refresh-token")));
+        assert!(form.contains(&("client_id", "test-client")));
+        assert_eq!(form.len(), 3);
     }
 }
