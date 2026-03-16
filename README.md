@@ -1,6 +1,6 @@
 # stoat
 
-**Streaming OAuth Transformer**
+## Streaming OAuth Transformer
 
 A config-driven local reverse proxy that manages OAuth token lifecycle and transforms requests so downstream clients can talk to OAuth-protected APIs using simple authentication.
 
@@ -8,11 +8,10 @@ A config-driven local reverse proxy that manages OAuth token lifecycle and trans
 
 stoat sits between a client and an upstream API. The client sends requests with a simple API key (or no auth). stoat replaces the auth headers with OAuth bearer tokens, applies configurable request mutations (headers, query params), and streams the response back. The client never knows OAuth is involved.
 
-```text
-┌────────┐   x-api-key    ┌───────┐  Bearer token   ┌──────────┐
-│ Client │ ───────────────> │ stoat │ ───────────────> │ Upstream │
-│        │ <─────────────── │       │ <─────────────── │   API    │
-└────────┘   response      └───────┘   response       └──────────┘
+```mermaid
+graph LR
+    Client -->|x-api-key| stoat -->|Bearer token| Upstream[Upstream API]
+    Upstream -->|response| stoat -->|response| Client
 ```
 
 ## Status

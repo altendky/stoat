@@ -1,6 +1,6 @@
 # stoat
 
-**Streaming OAuth Transformer**
+## Streaming OAuth Transformer
 
 A config-driven local reverse proxy that manages OAuth token lifecycle (PKCE flow, storage, refresh) and applies configurable request mutations (header rewriting, query param injection).
 Downstream clients talk to stoat as if it were a standard API endpoint with simple key-based auth.
