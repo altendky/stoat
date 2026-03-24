@@ -51,6 +51,12 @@
         "fileFilters": ["mise.lock"],
         "executionMode": "update"
       }
+    },
+
+    // Override extractVersion for nextest (version_prefix workaround)
+    {
+      "matchDepNames": ["github:nextest-rs/nextest"],
+      "extractVersion": "^cargo-nextest-(?<version>.+)$"
     }
   ]
 }
