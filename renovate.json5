@@ -36,10 +36,17 @@
   ],
 
   "packageRules": [
-    // Group Rust toolchain updates (rust-toolchain.toml + Cargo.toml MSRV)
+    // Group development Rust toolchain updates.
     {
       "matchDepNames": ["rust-lang/rust"],
       "groupName": "Rust toolchain"
+    },
+
+    // MSRV is a deliberate compatibility policy, not a routine toolchain update.
+    {
+      "matchDepNames": ["rust-lang/rust"],
+      "matchFileNames": ["Cargo.toml"],
+      "enabled": false
     },
 
     // After bumping a mise tool version, re-lock just that tool so mise.lock
