@@ -152,8 +152,7 @@ async fn run_login(config: &Config) -> ExitCode {
     // Convert to stored token format.
     let now_unix = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0);
+        .map_or(0, |d| d.as_secs());
 
     let stored_token = match token_response.into_stored_token(now_unix) {
         Ok(t) => t,
