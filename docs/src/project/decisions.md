@@ -116,7 +116,9 @@ This ensures consistent tool versions across developers and CI.
 **Decision:** Renovate with self-hosted bot.
 
 Automated dependency updates for Rust crates, GitHub Actions (SHA-pinned), pre-commit hooks, mise tools, and the Rust toolchain itself.
-Custom regex managers track `rust-toolchain.toml` channel and `Cargo.toml` `rust-version` as a grouped "Rust toolchain" update.
+Renovate updates the `rust-toolchain.toml` channel as a "Rust toolchain" update.
+The minimum Rust version in `Cargo.toml` is excluded from automatic updates;
+raising it requires a deliberate compatibility decision.
 
 ## Merge Queue
 

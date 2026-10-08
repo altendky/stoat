@@ -377,7 +377,7 @@ redirect_uri = "https://example.com/oauth/callback"
     fn empty_scopes_is_valid() {
         let toml = MINIMAL_CONFIG.replace("scopes = [\"scope1\"]", "scopes = []");
         let config = Config::from_toml(&toml).unwrap();
-        assert!(config.oauth.scopes.is_empty());
+        assert_eq!(config.oauth.scopes, Vec::<String>::new());
     }
 
     #[test]

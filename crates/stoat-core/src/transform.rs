@@ -166,7 +166,7 @@ mod tests {
     fn resolve_set_headers_empty() {
         let headers = HashMap::new();
         let resolved = resolve_set_headers(&headers, "tok");
-        assert!(resolved.is_empty());
+        assert_eq!(resolved, Vec::<(String, String)>::new());
     }
 
     // --- build_upstream_url ---
