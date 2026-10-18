@@ -20,30 +20,30 @@ if ! command -v file >/dev/null 2>&1; then
 	fi
 fi
 
-# Find the target directory - check for musl target dirs first, then debug
-if [ -d "target/x86_64-unknown-linux-musl/debug/deps" ]; then
-	DEPS_DIR="target/x86_64-unknown-linux-musl/debug/deps"
-elif [ -d "target/aarch64-unknown-linux-musl/debug/deps" ]; then
-	DEPS_DIR="target/aarch64-unknown-linux-musl/debug/deps"
-elif [ -d "target/debug/deps" ]; then
-	DEPS_DIR="target/debug/deps"
-else
-	echo "ERROR: No deps directory found"
-	exit 1
-fi
+# Cargo's intermediate directory layout is not stable. Nextest records the
+# actual executable paths used to produce this archive on every toolchain.
+METADATA=$(tar -xOf "${1:-target/nextest-archive.tar.zst}" target/nextest/binaries-metadata.json)
+BINARIES=$(printf '%s\n' "$METADATA" | jq -er '
+	."rust-binaries"
+	| if type != "object" or length == 0 then error("No test binaries in archive metadata") else .[] end
+	| ."binary-path"
+	| if type != "string" or length == 0 then error("Invalid test binary path") else . end
+')
 
-echo "Checking binaries in: $DEPS_DIR"
-
-for bin in "$DEPS_DIR"/*; do
-	if [ -f "$bin" ] && [ -x "$bin" ]; then
-		if file "$bin" | grep -q 'ELF.*executable'; then
-			if file "$bin" | grep -qE 'statically linked|static-pie linked'; then
-				echo "OK: $bin is statically linked"
-			else
-				echo "ERROR: $bin is dynamically linked"
-				file "$bin"
-				exit 1
-			fi
-		fi
+printf '%s\n' "$BINARIES" | while IFS= read -r bin; do
+	if [ ! -f "$bin" ] || [ ! -x "$bin" ]; then
+		echo "ERROR: Test binary is missing or not executable: $bin"
+		exit 1
+	fi
+	description=$(file -b -- "$bin")
+	if ! printf '%s\n' "$description" | grep -q 'ELF.*executable'; then
+		echo "ERROR: Expected an ELF test executable: $bin ($description)"
+		exit 1
+	fi
+	if printf '%s\n' "$description" | grep -qE 'statically linked|static-pie linked'; then
+		echo "OK: $bin is statically linked"
+	else
+		echo "ERROR: $bin is dynamically linked ($description)"
+		exit 1
 	fi
 done
