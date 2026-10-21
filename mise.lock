@@ -221,7 +221,7 @@ url = "https://github.com/rust-lang/mdBook/releases/download/v0.4.52/mdbook-v0.4
 url_api = "https://api.github.com/repos/rust-lang/mdBook/releases/assets/272870139"
 
 [[tools."pipx:pre-commit"]]
-version = "4.5.1"
+version = "4.7.0"
 backend = "pipx:pre-commit"
 
 [[tools.python]]
