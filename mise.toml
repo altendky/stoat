@@ -9,7 +9,7 @@ http_timeout = "120s"
 python = "3.14"
 "pipx:pre-commit" = "4.5.1"
 # Non-core tools: use explicit backend prefix (aqua:/github:) for Renovate compatibility
-"aqua:taiki-e/cargo-llvm-cov" = "0.8.4"
+"aqua:taiki-e/cargo-llvm-cov" = "0.9.1"
 "aqua:EmbarkStudios/cargo-deny" = "0.19.0"
 "github:nextest-rs/nextest" = { version = "0.9.130", version_prefix = "cargo-nextest-" }
 # Provides cargo-binstall so the cargo backend can download pre-built binaries
