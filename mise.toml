@@ -20,4 +20,4 @@ cargo-binstall = "latest"
 "cargo:lychee" = "0.23.0"
 # mdBook documentation tooling
 "github:rust-lang/mdBook" = "0.4.52"
-"github:badboy/mdbook-mermaid" = "0.16.2"
+"github:badboy/mdbook-mermaid" = "v0.17.1"
