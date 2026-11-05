@@ -26,9 +26,20 @@ pull_request_rules:
     conditions:
       - author = altendky-renovate[bot]
       - base = main
+      - github-review-decision = REVIEW_REQUIRED
     actions:
       review:
         type: APPROVE
+
+  - name: Automatically enqueue Renovate PRs
+    conditions:
+      - author = altendky-renovate[bot]
+      - base = main
+      - -draft
+    actions:
+      label:
+        add:
+          - enqueue
 
 merge_protections_settings:
   reporting_method: deployments
