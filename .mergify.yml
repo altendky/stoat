@@ -30,5 +30,15 @@ pull_request_rules:
       review:
         type: APPROVE
 
+  - name: Automatically enqueue Renovate PRs
+    conditions:
+      - author = altendky-renovate[bot]
+      - base = main
+      - -draft
+    actions:
+      label:
+        add:
+          - enqueue
+
 merge_protections_settings:
   reporting_method: deployments
