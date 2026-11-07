@@ -124,7 +124,7 @@ raising it requires a deliberate compatibility decision.
 
 **Decision:** Mergify with label-gated queue.
 
-Merge queue is triggered by the `enqueue` label, requires at least one approved review, and uses merge commits.
+Merge queue is triggered by the `enqueue` label, requires passing CI, and uses merge commits.
 Renovate bot PRs are auto-approved.
 
 ## Static Linking
