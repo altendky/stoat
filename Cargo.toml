@@ -8,10 +8,6 @@ edition = "2024"
 rust-version = "1.89"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/altendky/stoat"
-homepage = "https://github.com/altendky/stoat"
-description = "Streaming OAuth Transformer — a config-driven local reverse proxy for OAuth token lifecycle management"
-keywords = ["oauth", "proxy", "streaming", "transformer"]
-categories = ["authentication", "network-programming"]
 readme = "README.md"
 
 [workspace.dependencies]
@@ -21,15 +17,15 @@ stoat-io = { path = "crates/stoat-io", version = "0.1.0" }
 
 # External dependencies
 axum = "0.8"
-base64 = "0.22"
+base64 = "0.23"
 clap = { version = "4", features = ["derive"] }
-dirs = "6"
+dirs = "7"
 http = "1"
 reqwest = { version = "0.13", default-features = false, features = ["form", "json", "rustls", "stream"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-toml = "0.8"
-sha2 = "0.10"
+toml = "1.0"
+sha2 = "0.11"
 thiserror = "2"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "signal", "sync"] }
 tracing = "0.1"

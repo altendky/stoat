@@ -9,19 +9,19 @@ repos:
       - id: check-merge-conflict
 
   - repo: https://github.com/crate-ci/typos
-    rev: v1.44.0
+    rev: v1.52.0
     hooks:
       - id: typos
 
   - repo: https://github.com/DavidAnson/markdownlint-cli2
-    rev: v0.21.0
+    rev: v0.24.2
     hooks:
       - id: markdownlint-cli2
 
   - repo: https://github.com/lycheeverse/lychee
-    rev: lychee-v0.23.0
+    rev: lychee-v0.24.2
     hooks:
-      - id: lychee
+      - id: lychee-system
         args: ["--no-progress", "--config=.lychee.toml"]
         types: [markdown]
 
@@ -31,7 +31,7 @@ repos:
       - id: validate-mergify-config
 
   - repo: https://github.com/rhysd/actionlint
-    rev: v1.7.11
+    rev: v1.7.12
     hooks:
       - id: actionlint
         args: [-verbose]

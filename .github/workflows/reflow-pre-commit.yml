@@ -19,13 +19,13 @@ jobs:
         arch: ${{ fromJSON(needs.library.outputs.matrix).axes.arch }}
         exclude: ${{ fromJSON(needs.library.outputs.matrix).exclude.windows-arm }}
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - uses: jdx/mise-action@c1ecc8f748cd28cdeabf76dab3cccde4ce692fe4 # v4
+      - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5
         env:
           RUSTUP_TOOLCHAIN: stable
 
-      - uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ~/.cache/pre-commit
           key: pre-commit-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.pre-commit-config.yaml', 'mise.toml', 'mise.lock') }}

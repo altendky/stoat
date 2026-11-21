@@ -18,3 +18,4 @@ runs:
       with:
         toolchain: ${{ inputs.toolchain }}
         components: ${{ inputs.components }}
+        rustflags: "-D warnings"
