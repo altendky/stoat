@@ -8,10 +8,6 @@ edition = "2024"
 rust-version = "1.89"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/altendky/stoat"
-homepage = "https://github.com/altendky/stoat"
-description = "Streaming OAuth Transformer — a config-driven local reverse proxy for OAuth token lifecycle management"
-keywords = ["oauth", "proxy", "streaming", "transformer"]
-categories = ["authentication", "network-programming"]
 readme = "README.md"
 
 [workspace.dependencies]
